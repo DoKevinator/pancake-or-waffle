@@ -18,6 +18,8 @@ from math import floor
 import functools
 print = functools.partial(print, flush=True)
 
+import time
+
 data_path = "../data"
 training_path = "../data/train"
 validation_path = "../data/validation"
@@ -123,6 +125,7 @@ dataloaders = {
 
 def train_model( model, dataloaders, loss_function, optimizer, num_epochs):
 
+    train_time = time.time()
     for epoch in trange( num_epochs, desc="Total progress", unit="epoch"):
         print( 'Epoch {}/{}'.format(epoch+1, num_epochs))
         print('--------------')
@@ -160,6 +163,8 @@ def train_model( model, dataloaders, loss_function, optimizer, num_epochs):
             print(f'{phase} error: {epoch_loss:.4f}, Accuracy: {epoch_acc:.4f}')
         
         print()
+    
+    print("Training time took: %s seconds" %(time.time() - train_time))
 
 def main():
     print("Data contents:", os.listdir(data_path))
@@ -173,20 +178,33 @@ def main():
     # ax[3].imshow(Image.open("../data/train/waffles/w-00002.jpeg"))   # show the muffin in the fourth column
     # plt.show()
 
-
     loss_function = nn.CrossEntropyLoss()   # apparently the most common error function in deep learning? Note: need to learn more about this
     optimizer = optim.SGD(model.parameters(), lr=0.1)    # stochastic gradient descent, with learning rate of 0.1? Note: need to learn more about this
 
-    train_model(model, dataloaders, loss_function, optimizer, num_epochs=20)
+    print("Welcome to Pancakes or Waffles.")
+    print("Enter 1 to train a new model, save model, and run.")
+    print("Enter 2 to load and run the existing model.")
+    option = input( "Please choose your option: ")
+
+    if option == '1':
+        train_model(model, dataloaders, loss_function, optimizer, num_epochs=20)    
+        torch.save(model.state_dict(), './savedmodel')  #saving model for inference
+        # torch.save(model, './savedmodel')             #saving entire model
+    elif option == '2':
+        model.load_state_dict(torch.load('./savedmodel'))   # loading model for inference
+        # model = torch.load('./savedmodel')                # loading entire model
+        model.eval()
 
     # get all the images from our validation sets
     validation_img_paths = glob("../data/validation/**/*.jpg", recursive=True)
     images = [Image.open(img_path) for img_path in validation_img_paths]
 
+    validation_time = time.time()
     # put all the images together to run through our model
     validation_batch = torch.stack( [validation_transforms(img).to(device) for img in images])
     pred_logits_tensor = model(validation_batch)
     pred_probs = pred_logits_tensor.cpu().data.numpy()
+    print("Validation took %s seconds" % (time.time() - validation_time))
 
     # show the probabilities for each picture
     fig, axs = plt.subplots(6, 5, figsize=(20, 20))
